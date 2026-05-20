@@ -1,0 +1,1862 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>云中谁寄锦书来</title>
+    <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;600;700&family=ZCOOL+QingKe+HuangYou&family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Noto Serif SC', serif;
+            background: linear-gradient(180deg, #2c2416 0%, #1a1a2e 100%);
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .ink-texture {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+        }
+        
+        /* 开场动画容器 */
+        #splash-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #1a1a1a;
+            z-index: 1000;
+            overflow: hidden;
+        }
+        
+        /* 开场场景样式 */
+        .scene-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: absolute;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            transition: opacity 1.2s ease-in-out;
+        }
+        
+        .scene-container.active {
+            opacity: 1;
+        }
+        
+        .scene-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        
+        .scene-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        
+        /* 动态效果 */
+        @keyframes fadeInScale {
+            0% { opacity: 0; transform: scale(1.1); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        
+        @keyframes floatEffect {
+            0%, 100% { transform: scale(1) translateY(0); }
+            50% { transform: scale(1.02) translateY(-10px); }
+        }
+        
+        @keyframes subtleZoom {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .animate-fade-in {
+            animation: fadeInScale 2s ease-out forwards;
+        }
+        
+        .animate-float {
+            animation: floatEffect 4s ease-in-out infinite;
+        }
+        
+        .animate-zoom {
+            animation: subtleZoom 3s ease-in-out infinite;
+        }
+        
+        /* 毛笔字标题样式 */
+        .brush-title {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 96px;
+            color: #1a1a1a;
+            text-shadow: 3px 3px 6px rgba(255,255,255,0.3);
+            z-index: 10;
+            opacity: 0;
+            animation: brushAppear 2s ease-out forwards;
+            white-space: nowrap;
+            letter-spacing: 8px;
+        }
+        
+        @keyframes brushAppear {
+            0% { 
+                opacity: 0; 
+                transform: translate(-50%, -50%) scale(1.5);
+                filter: blur(10px);
+            }
+            50% {
+                opacity: 0.7;
+                filter: blur(5px);
+            }
+            100% { 
+                opacity: 1; 
+                transform: translate(-50%, -50%) scale(1);
+                filter: blur(0);
+            }
+        }
+        
+        /* 按钮样式 */
+        .action-button {
+            position: absolute;
+            bottom: 15%;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 18px 60px;
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 28px;
+            background: linear-gradient(135deg, #8b4513 0%, #654321 100%);
+            color: #fff;
+            border: 3px solid #d4af37;
+            border-radius: 10px;
+            cursor: pointer;
+            opacity: 0;
+            z-index: 20;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+            transition: all 0.3s ease;
+        }
+        
+        .action-button:hover {
+            background: linear-gradient(135deg, #a0522d 0%, #8b4513 100%);
+            transform: translateX(-50%) scale(1.05);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.5);
+        }
+        
+        @keyframes buttonAppear {
+            0% { opacity: 0; transform: translateX(-50%) translateY(40px); }
+            100% { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        
+        /* 隐藏场景 */
+        .scene-hidden {
+            display: none !important;
+        }
+        
+        #main-menu {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, #e8e0d0 0%, #f5f0e6 50%, #faf4e8 100%);
+            background-image: url('桌子.jpg');
+            background-size: cover;
+            background-position: center bottom;
+            background-repeat: no-repeat;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 900;
+        }
+
+        .menu-header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .menu-title {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 48px;
+            color: #2c2416;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(139, 115, 85, 0.2);
+        }
+
+        .menu-subtitle {
+            font-family: 'Noto Serif SC', serif;
+            font-size: 18px;
+            color: #5a4f3d;
+        }
+
+        .tokens-container {
+            display: flex;
+            gap: 40px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 800px;
+            transition: opacity 1s ease-out;
+        }
+
+        .menu-token {
+            width: 120px;
+            height: 160px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s ease;
+            padding: 15px;
+            background: rgba(250, 244, 232, 0.5);
+            border-radius: 10px;
+            border: 2px solid transparent;
+        }
+
+        .menu-token:hover {
+            transform: translateY(-15px);
+            border-color: rgba(201, 169, 98, 0.5);
+            background: rgba(250, 244, 232, 0.9);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        }
+
+        .menu-token.locked {
+            filter: grayscale(100%) opacity(0.5);
+            cursor: not-allowed;
+        }
+
+        .menu-token.locked:hover {
+            transform: none;
+            border-color: transparent;
+            box-shadow: none;
+        }
+
+        .menu-token.active {
+            border-color: #c9a962;
+            box-shadow: 0 0 20px rgba(201, 169, 98, 0.4);
+        }
+
+        .menu-token-icon {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border: 2px solid rgba(139, 115, 85, 0.3);
+        }
+
+        .menu-token-name {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 20px;
+            color: #000000;
+            text-align: center;
+        }
+
+        .menu-token-intro {
+            font-family: 'Noto Serif SC', serif;
+            font-size: 13px;
+            font-weight: bold;
+            color: #000000;
+            text-align: center;
+            margin-top: 5px;
+            max-width: 100px;
+        }
+
+        .menu-token.completed::after {
+            content: '✓';
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            color: #4CAF50;
+            font-size: 20px;
+        }
+        
+        #game-area {
+            display: none;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            background-image: url('游戏界面.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+        
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 30px;
+            background: rgba(250, 244, 232, 0.95);
+            border-bottom: 3px solid #c9a962;
+        }
+        
+        .back-btn {
+            padding: 10px 25px;
+            font-family: 'Noto Serif SC', serif;
+            font-size: 14px;
+            background: linear-gradient(180deg, #f5f0e6 0%, #e8dcc8 100%);
+            border: 2px solid #8b7355;
+            border-radius: 5px;
+            cursor: pointer;
+            color: #2c2416;
+            transition: all 0.3s ease;
+        }
+        
+        .back-btn:hover {
+            background: linear-gradient(180deg, #e8dcc8 0%, #d4c4a8 100%);
+            transform: translateY(-2px);
+        }
+        
+        .current-token {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 28px;
+            color: #2c2416;
+        }
+        
+        .fragments-progress {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .fragment-dot {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: rgba(139, 115, 85, 0.2);
+            border: 2px solid #8b7355;
+            transition: all 0.3s ease;
+        }
+        
+        .fragment-dot.collected {
+            background: #c9a962;
+            border-color: #a08040;
+        }
+        
+        .game-main {
+            display: flex;
+            flex: 1;
+            background: transparent;
+        }
+        
+        .fragments-panel {
+            width: 300px;
+            padding: 30px;
+            background: rgba(250, 244, 232, 0.9);
+            border-right: 2px solid rgba(139, 115, 85, 0.3);
+            overflow-y: auto;
+        }
+        
+        .panel-title {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 24px;
+            color: #2c2416;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .fragment-item {
+            padding: 15px;
+            margin-bottom: 15px;
+            background: rgba(255, 255, 255, 0.5);
+            border: 2px solid rgba(139, 115, 85, 0.3);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .fragment-item:hover {
+            transform: translateX(5px);
+            border-color: #c9a962;
+        }
+        
+        .fragment-item.collected {
+            background: rgba(201, 169, 98, 0.2);
+            border-color: #c9a962;
+        }
+        
+        .fragment-location {
+            font-size: 12px;
+            color: #8b7355;
+            margin-bottom: 5px;
+        }
+        
+        .fragment-text {
+            font-size: 14px;
+            color: #2c2416;
+            line-height: 1.6;
+        }
+        
+        .game-content {
+            flex: 1;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+        
+        .action-btn {
+            padding: 15px 40px;
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 24px;
+            background: linear-gradient(180deg, #f5f0e6 0%, #e8dcc8 100%);
+            border: 3px solid #c9a962;
+            border-radius: 10px;
+            cursor: pointer;
+            color: #2c2416;
+            transition: all 0.3s ease;
+            min-width: 200px;
+        }
+        
+        .action-btn:hover:not(:disabled) {
+            background: linear-gradient(180deg, #e8dcc8 0%, #d4c4a8 100%);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
+        
+        .action-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            filter: grayscale(50%);
+        }
+        
+        .search-locations {
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+            border: 2px solid rgba(139, 115, 85, 0.3);
+        }
+        
+        .location-title {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 20px;
+            color: #2c2416;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .location-btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            font-family: 'Noto Serif SC', serif;
+            font-size: 14px;
+            background: rgba(250, 244, 232, 0.8);
+            border: 2px solid #8b7355;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: #2c2416;
+        }
+        
+        .location-btn:hover:not(:disabled) {
+            background: rgba(201, 169, 98, 0.3);
+            transform: translateX(5px);
+        }
+        
+        .location-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: linear-gradient(180deg, #faf4e8 0%, #f5f0e6 100%);
+            padding: 40px;
+            border-radius: 15px;
+            border: 4px solid #c9a962;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 30px;
+            cursor: pointer;
+            color: #8b7355;
+            transition: color 0.3s ease;
+        }
+        
+        .modal-close:hover {
+            color: #2c2416;
+        }
+        
+        .question-modal .modal-content {
+            text-align: center;
+        }
+        
+        .question-text {
+            font-family: 'Noto Serif SC', serif;
+            font-size: 20px;
+            color: #2c2416;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        
+        .question-options {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .question-option {
+            padding: 15px 30px;
+            font-family: 'Noto Serif SC', serif;
+            font-size: 16px;
+            background: rgba(250, 244, 232, 0.9);
+            border: 2px solid #8b7355;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: #2c2416;
+        }
+        
+        .question-option:hover {
+            background: rgba(201, 169, 98, 0.3);
+            border-color: #c9a962;
+        }
+        
+        .question-option.correct {
+            background: rgba(76, 175, 80, 0.3);
+            border-color: #4CAF50;
+        }
+        
+        .question-option.wrong {
+            background: rgba(244, 67, 54, 0.3);
+            border-color: #f44336;
+        }
+        
+        .poem-modal .modal-content {
+            background: rgba(250, 244, 232, 0.95);
+            border: none;
+            box-shadow: 
+                0 0 0 4px rgba(201, 169, 98, 0.5),
+                0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        .poem-content {
+            text-align: center;
+            padding: 40px 20px;
+        }
+        
+        .poem-text {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 32px;
+            color: #2c2416;
+            line-height: 2;
+            margin-bottom: 20px;
+        }
+        
+        .poem-source {
+            font-family: 'Noto Serif SC', serif;
+            font-size: 16px;
+            color: #5a4f3d;
+            margin-top: 20px;
+        }
+        
+        .letter-modal .modal-content {
+            width: 800px;
+            max-width: 95vw;
+            max-height: 90vh;
+            background: #fdf8e8;
+            border: 4px solid #c9a962;
+            box-shadow: 
+                inset 0 0 50px rgba(201, 169, 98, 0.1),
+                0 10px 30px rgba(0, 0, 0, 0.3);
+            border-radius: 5px;
+            padding: 30px;
+            overflow: hidden;
+        }
+        
+        .letter-header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px dashed #c9a962;
+        }
+        
+        .letter-title {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 28px;
+            color: #000000;
+            margin-bottom: 10px;
+        }
+        
+        .letter-body {
+            padding: 40px;
+            background: linear-gradient(180deg, #fdf8e8 0%, #f8f2e0 100%);
+            border: 3px solid #c9a962;
+            border-radius: 5px;
+            box-shadow: 
+                inset 0 2px 20px rgba(139, 115, 85, 0.15),
+                0 5px 15px rgba(0, 0, 0, 0.15);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .letter-body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.04' numOctaves='5'/%3E%3CfeDiffuseLighting in='noise' lighting-color='%23f5efe0' surfaceScale='2'%3E%3CfeDistantLight azimuth='45' elevation='60'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23paper)'/%3E%3C/svg%3E");
+            opacity: 0.08;
+            pointer-events: none;
+        }
+        
+        .letter-content {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 22px;
+            line-height: 1.4;
+            color: #1a1a1a;
+            white-space: pre-wrap;
+            position: relative;
+            z-index: 1;
+            padding: 20px;
+            width: 100%;
+            max-height: 600px;
+            overflow-y: auto;
+            text-align: left;
+            background: #fdf8e8;
+        }
+        
+        .letter-signature {
+            margin-top: 30px;
+            text-align: right;
+            font-style: italic;
+            opacity: 0.8;
+        }
+        
+        /* 重新开始界面 */
+        .restart-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        
+        .restart-popup {
+            background: linear-gradient(180deg, #fdf8e8 0%, #f5efe0 100%);
+            border: 4px solid #8b7355;
+            border-radius: 15px;
+            padding: 40px;
+            max-width: 500px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+        
+        .restart-title {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 32px;
+            color: #5d4037;
+            margin-bottom: 20px;
+        }
+        
+        .restart-text {
+            font-size: 18px;
+            color: #5d4037;
+            line-height: 1.8;
+            margin-bottom: 30px;
+        }
+        
+        .restart-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+        }
+        
+        .restart-btn {
+            padding: 12px 30px;
+            font-size: 18px;
+            font-family: 'Ma Shan Zheng', cursive;
+            border: 2px solid #8b7355;
+            background: linear-gradient(180deg, #fdf8e8 0%, #e8dcc0 100%);
+            color: #5d4037;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .restart-btn:hover {
+            background: linear-gradient(180deg, #e8dcc0 0%, #d4c6a6 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .mute-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            border: 2px solid #8b7355;
+            border-radius: 50%;
+            background: rgba(250, 244, 232, 0.9);
+            cursor: pointer;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            z-index: 3000;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .mute-btn:hover {
+            background: #e8dcc8;
+            transform: scale(1.1);
+        }
+        
+        .mute-btn.muted {
+            background: rgba(139, 115, 85, 0.8);
+            color: white;
+        }
+        
+        @media (max-width: 768px) {
+            .menu-title { font-size: 32px; }
+            .tokens-container { gap: 20px; }
+            .menu-token { width: 80px; height: 110px; }
+            .menu-token-icon { font-size: 36px; }
+            .game-main { flex-direction: column; }
+            .fragments-panel { width: 100%; }
+            .brush-title { font-size: 36px; }
+            .action-button { font-size: 22px; padding: 15px 40px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div class="ink-texture"></div>
+        
+        <button id="mute-btn" class="mute-btn">🔔</button>
+        
+        <!-- 开场动画区域 -->
+        <div id="splash-screen">
+            <!-- 场景1：开头图片 -->
+            <div id="scene-opening" class="scene-container active">
+                <img src="开头.jpg" alt="开场" class="scene-image animate-fade-in">
+            </div>
+            
+            <!-- 开头动画视频 -->
+            <div id="scene-animation-video" class="scene-container scene-hidden">
+                <video id="animationVideo" class="scene-video" muted>
+                    <source src="开头动画视频.mp4" type="video/mp4">
+                </video>
+            </div>
+            
+            <!-- 驿馆视频 -->
+            <div id="scene-yiguan" class="scene-container scene-hidden">
+                <video id="yiguanVideo" class="scene-video" muted>
+                    <source src="驿馆视频.mp4" type="video/mp4">
+                </video>
+            </div>
+        </div>
+        
+        <div id="main-menu">
+            <div class="tokens-container" id="menu-tokens"></div>
+        </div>
+        
+        <div id="game-area">
+            <div class="game-header">
+                <button class="back-btn" id="back-btn">返回</button>
+                <div class="current-token" id="current-token"></div>
+                <div class="fragments-progress" id="fragments-progress"></div>
+            </div>
+            <div class="game-main">
+                <div class="fragments-panel">
+                    <div class="panel-title">收集碎片</div>
+                    <div id="fragments-list"></div>
+                </div>
+                <div class="game-content">
+                    <div class="action-buttons">
+                        <button class="action-btn" id="search-btn">寻信</button>
+                        <button class="action-btn" id="verify-btn">证信</button>
+                        <button class="action-btn" id="restore-btn" disabled>复原书信</button>
+                    </div>
+                    <div class="search-locations" id="search-locations" style="display: none;">
+                        <div class="location-title">请选择地点</div>
+                        <div id="locations-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="modal question-modal" id="question-modal">
+            <div class="modal-content">
+                <span class="modal-close" id="question-close">×</span>
+                <div class="question-text" id="question-text"></div>
+                <div class="question-options" id="question-options"></div>
+            </div>
+        </div>
+        
+        <div class="modal poem-modal" id="poem-modal">
+            <div class="modal-content">
+                <div class="poem-content">
+                    <div class="poem-text" id="poem-text"></div>
+                    <div class="poem-source" id="poem-source"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="modal letter-modal" id="letter-modal">
+            <div class="modal-content">
+                <span class="modal-close" id="letter-close">×</span>
+                <div class="letter-header">
+                    <div class="letter-title" id="letter-title"></div>
+                </div>
+                <div class="letter-body">
+                    <div class="letter-content" id="letter-content"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="modal" id="fragment-modal">
+            <div class="modal-content">
+                <span class="modal-close" id="fragment-close">×</span>
+                <div id="fragment-modal-content"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const gameData = {
+            love: {
+                id: 'love',
+                name: '檀木梳',
+                icon: '檀木梳.png',
+                intro: '青丝为君梳，白发共君老。',
+                fontClass: 'love',
+                poem: '可怜无定河边骨，犹是春闺梦里人。',
+                poemSource: '—— 陈陶《陇西行》',
+                searchLocations: ['妆台', '窗前', '驿道旁'],
+                searchFragments: [
+                    '妆奁犹在，卿面已无由得见。',
+                    '每夜挑灯补衣，针针皆血也。',
+                    '见驿路梨花开，恍若当年离别卿笑颜，待吾回头，卿已泪涟涟。'
+                ],
+                questions: [
+                    {
+                        question: '"生当复来归"下一句？',
+                        options: ['A.死当长相思', 'B.白首不相离'],
+                        answer: 'A',
+                        fragment: '闻卿病笃日，吾正于沙场斩将夺旗。'
+                    },
+                    {
+                        question: '"十年生死两茫茫"作者？',
+                        options: ['A.苏轼', 'B.纳兰性德'],
+                        answer: 'A',
+                        fragment: '朝廷封赏至，卿坟前草已三尺矣。'
+                    },
+                    {
+                        question: '"惟将终夜长开眼"下一句？',
+                        options: ['A.报答平生未展眉', 'B.此恨绵绵无绝期'],
+                        answer: 'A',
+                        fragment: '欲寄此纸于九泉，卿能收之否？'
+                    }
+                ],
+                fullLetter: `妆奁犹在，卿面已无由得见。忆卿每夜挑灯补衣，针针皆血也。见驿路梨花开，恍若当年离别卿笑颜，待吾回头，卿已泪涟涟。
+
+闻卿病笃日，吾正于沙场斩将夺旗。朝廷封赏至，卿坟前草已三尺矣。
+
+欲寄此纸于九泉，卿能收之否？
+
+吾平生未尝负天下人，唯负卿一人耳。`
+            },
+            friendship: {
+                id: 'friendship',
+                name: '松醪春',
+                icon: '松醪春.png',
+                intro: '这坛松醪春，是从京城最好的酒家买的，七娘子酿的。',
+                fontClass: 'friendship',
+                poem: '拨置千忧并百虑，且醉一斛松醪春。',
+                poemSource: '—— 李纲《望白水山次合江楼韵》',
+                searchLocations: ['酒肆', '朝堂阶下', '驿站墙角'],
+                searchFragments: [
+                    '少年时同饮此肆，君醉后言：他日若相争，不负苍生。',
+                    '今日殿前又争，君目赤如血，吾亦不退。',
+                    '群臣谓吾与君势如水火，殊不知……'
+                ],
+                questions: [
+                    {
+                        question: '"君子和而不同"出自？',
+                        options: ['A.《论语》', 'B.《孟子》'],
+                        answer: 'A',
+                        fragment: '昔年黄河决口，君与吾并肩扛石三日不眠。'
+                    },
+                    {
+                        question: '"知其不可而为之"说的是谁？',
+                        options: ['A.孔子', 'B.屈原'],
+                        answer: 'A',
+                        fragment: '今君请离京，吾连夜入宫请旨留君。'
+                    },
+                    {
+                        question: '"道不同不相为谋"下一句？',
+                        options: ['A.亦各从其志也', 'B.不相与言'],
+                        answer: 'A',
+                        fragment: '然圣意已决，吾终不能留君于朝。'
+                    }
+                ],
+                fullLetter: `少年时同饮此肆，君醉后言：他日若相争，不负苍生。今日殿前又争，君目赤如血，吾亦不退。群臣谓吾与君势如水火，殊不知昔年黄河决口，君与吾并肩扛石三日不眠。
+
+今君请离京，吾连夜入宫请旨留君。然圣意已决，吾终不能留君于朝。君去后，朝堂再无对手，亦再无知己。沿途多瘴气，君善自保。莫忘少年时所言：不负苍生。
+
+附：这坛松醪春，是我从京城最好的酒家买的，七娘子酿的。`
+            },
+            family: {
+                id: 'family',
+                name: '旧衣',
+                icon: '旧衣.png',
+                intro: '针脚很密，像没说完的话。',
+                fontClass: 'family',
+                poem: '低徊愧人子，不敢叹风尘。',
+                poemSource: '—— 蒋士铨《岁暮到家》',
+                searchLocations: ['织机旁', '灶台边', '村口树下'],
+                searchFragments: [
+                    '儿三岁时，母习制衣，十指皆伤。',
+                    '儿赴京赶考日，母于包袱中暗置炊饼三枚。',
+                    '闻儿中进士，母坐门槛泣下，俄而笑。'
+                ],
+                questions: [
+                    {
+                        question: '"母年一百岁"下一句？',
+                        options: ['A.常忧八十儿', 'B.儿行千里母担忧'],
+                        answer: 'A',
+                        fragment: '今岁极寒，母欲赴京视儿。'
+                    },
+                    {
+                        question: '"暗中时滴思亲泪"下一句？',
+                        options: ['A.只恐思儿泪更多', 'B.意恐迟迟归'],
+                        answer: 'A',
+                        fragment: '行至半途，病卧驿站，此信乃托驿卒代书。'
+                    },
+                    {
+                        question: '"寒衣针线密"的上一句？',
+                        options: ['A.爱子心无尽', 'B.见面怜清瘦'],
+                        answer: 'A',
+                        fragment: '母病无大碍，儿勿念。为官须清，不负百姓。'
+                    }
+                ],
+                fullLetter: `儿三岁时，母习制衣，十指皆伤。儿赴京赶考日，母于包袱中暗置炊饼三枚。闻儿中进士，母坐门槛泣下，俄而笑。
+
+今岁极寒，母欲赴京视儿。行至半途，病卧驿站，此信乃托驿卒代书。
+
+母病无大碍，儿勿念。为官须清，不负百姓。此衣已改小，待儿有子，代母予之。`
+            },
+            teacher: {
+                id: 'teacher',
+                name: '残砚',
+                icon: '残砚.png',
+                intro: '磨了一生的墨，只留一角。',
+                fontClass: 'teacher',
+                poem: '新竹高于旧竹枝，全凭老干为扶持。',
+                poemSource: '—— 郑燮《新竹》',
+                searchLocations: ['书房', '学堂后院', '病榻边'],
+                searchFragments: [
+                    '汝初至时，字如蟹行，吾读之三遍乃通。',
+                    '汝言不赴考，吾怒责之，退而自泣。',
+                    '汝中举喜报至，吾置于枕下，夜夜摩挲。'
+                ],
+                questions: [
+                    {
+                        question: '"弟子不必不如师"下一句？',
+                        options: ['A.师不必贤于弟子', 'B.青出于蓝'],
+                        answer: 'A',
+                        fragment: '吾病不起，汝寄之药，日进三剂。'
+                    },
+                    {
+                        question: '"新竹高于旧竹枝"下一句？',
+                        options: ['A.全凭老干为扶持', 'B.雏凤清于老凤声'],
+                        answer: 'A',
+                        fragment: '昨日起，咳血不止。此砚相遗。'
+                    },
+                    {
+                        question: '"令公桃李满天下"下一句？',
+                        options: ['A.何用堂前更种花', 'B.绿野堂开占物华'],
+                        answer: 'A',
+                        fragment: '汝近作一篇，吾已批毕，置于砚下。'
+                    }
+                ],
+                fullLetter: `汝初至时，字如蟹行，吾读之三遍乃通。汝言不赴考，吾怒责之，退而自泣。汝中举喜报至，吾置于枕下，夜夜摩挲。
+
+吾病不起，汝寄之药，日进三剂。昨日起，咳血不止。此砚相遗。汝近作一篇，吾已批毕，置于砚下。
+
+吾道不孤，汝其勉之。`
+            },
+            classmate: {
+                id: 'classmate',
+                name: '竹书签',
+                icon: '竹书签.png',
+                intro: '上面刻着两个字，歪歪扭扭。',
+                fontClass: 'classmate',
+                poem: '桃李春风一杯酒，江湖夜雨十年灯。',
+                poemSource: '—— 黄庭坚《寄黄几复》',
+                searchLocations: ['学堂课桌', '后山竹林', '桥边石亭'],
+                searchFragments: [
+                    '共刻字于桌，被先生罚立檐下，相视而笑。',
+                    '汝云欲为大吏，吾云欲为侠客。后皆未成。',
+                    '汝离乡日，吾未送，独坐亭中泣。'
+                ],
+                questions: [
+                    {
+                        question: '"同学少年多不贱"下一句？',
+                        options: ['A.五陵衣马自轻肥', 'B.致君尧舜上'],
+                        answer: 'A',
+                        fragment: '汝来书云：得暇当还。吾候至今。'
+                    },
+                    {
+                        question: '"故人入我梦"下一句？',
+                        options: ['A.明我长相忆', 'B.江湖多风波'],
+                        answer: 'A',
+                        fragment: '去岁中秋独饮，忆汝少时言……'
+                    },
+                    {
+                        question: '"落月满屋梁"的上一句？',
+                        options: ['A.明我长相忆', 'B.故人入我梦'],
+                        answer: 'B',
+                        fragment: '忆汝少时言：友者，隔一世而犹笑也。'
+                    }
+                ],
+                fullLetter: `共刻字于桌，被先生罚立檐下，相视而笑。汝云欲为大吏，吾云欲为侠客。后皆未成。汝离乡日，吾未送，独坐亭中泣。
+
+汝来书云：得暇当还。吾候至今。去岁中秋独饮，忆汝少时言：友者，隔一世而犹笑也。
+
+桌上刻字犹在。友谊永固。固字误书为故，汝当年笑吾。今无人笑矣。`
+            }
+        };
+        
+        const tokenOrder = ['love', 'friendship', 'family', 'teacher', 'classmate'];
+        
+        let gameProgress = {
+            tokens: {},
+            completedTokens: []
+        };
+        
+        let currentToken = null;
+        let audioContext = null;
+        let isMuted = false;
+        
+        function loadProgress() {
+            const saved = localStorage.getItem('cloudLetterGameProgress');
+            if (saved) {
+                gameProgress = JSON.parse(saved);
+            }
+        }
+        
+        function saveProgress() {
+            localStorage.setItem('cloudLetterGameProgress', JSON.stringify(gameProgress));
+        }
+        
+        // 音乐播放器
+        let bgMusic = {
+           踏雪归集: null,
+            为霜: null,
+            current: null
+        };
+        
+        function initAudioFiles() {
+            bgMusic.踏雪归集 = new Audio('踏雪归集-Soulloom苏洛牧.mp3');
+            bgMusic.踏雪归集.loop = true;
+            bgMusic.踏雪归集.volume = 0;
+            
+            bgMusic.为霜 = new Audio('为霜-羽肿-MP3下载-歌曲海-海量高品质MP3音乐免费下载_2601258927.aac');
+            bgMusic.为霜.loop = true;
+            bgMusic.为霜.volume = 0;
+        }
+        
+        function playBgMusic(musicName) {
+            if (!bgMusic[musicName]) return;
+            
+            // 如果是同一首音乐，不做处理
+            if (bgMusic.current === musicName) return;
+            
+            // 淡出当前音乐
+            if (bgMusic.current && bgMusic[bgMusic.current]) {
+                fadeOut(bgMusic[bgMusic.current], 1000);
+            }
+            
+            // 淡入新音乐
+            bgMusic[musicName].currentTime = 0;
+            bgMusic[musicName].play().catch(e => console.log('播放失败:', e));
+            fadeIn(bgMusic[musicName], 1500);
+            
+            bgMusic.current = musicName;
+        }
+        
+        function playBgMusicFrom(musicName, startSeconds) {
+            if (!bgMusic[musicName]) return;
+            
+            // 如果是同一首音乐，只调整播放位置
+            if (bgMusic.current === musicName) {
+                bgMusic[musicName].currentTime = startSeconds;
+                return;
+            }
+            
+            // 淡出当前音乐
+            if (bgMusic.current && bgMusic[bgMusic.current]) {
+                fadeOut(bgMusic[bgMusic.current], 1000);
+            }
+            
+            // 从指定时间开始播放新音乐
+            bgMusic[musicName].currentTime = startSeconds;
+            bgMusic[musicName].play().catch(e => console.log('播放失败:', e));
+            fadeIn(bgMusic[musicName], 1500);
+            
+            bgMusic.current = musicName;
+        }
+        
+        function fadeIn(audio, duration) {
+            const targetVolume = isMuted ? 0 : 0.5;
+            const steps = 20;
+            const stepDuration = duration / steps;
+            const volumeStep = targetVolume / steps;
+            let currentStep = 0;
+            
+            audio.volume = 0;
+            
+            const interval = setInterval(() => {
+                currentStep++;
+                audio.volume = Math.min(volumeStep * currentStep, targetVolume);
+                
+                if (currentStep >= steps) {
+                    clearInterval(interval);
+                }
+            }, stepDuration);
+        }
+        
+        function fadeOut(audio, duration) {
+            const steps = 20;
+            const stepDuration = duration / steps;
+            const startVolume = audio.volume;
+            const volumeStep = startVolume / steps;
+            let currentStep = 0;
+            
+            const interval = setInterval(() => {
+                currentStep++;
+                audio.volume = Math.max(startVolume - volumeStep * currentStep, 0);
+                
+                if (currentStep >= steps) {
+                    clearInterval(interval);
+                    audio.pause();
+                }
+            }, stepDuration);
+        }
+        
+        function initGame() {
+            loadProgress();
+            initAudioFiles();
+            
+            document.getElementById('back-btn').addEventListener('click', backToMenu);
+            document.getElementById('search-btn').addEventListener('click', showSearchLocations);
+            document.getElementById('verify-btn').addEventListener('click', showVerifyQuestion);
+            document.getElementById('restore-btn').addEventListener('click', restoreLetter);
+            document.getElementById('mute-btn').addEventListener('click', toggleMute);
+            document.getElementById('question-close').addEventListener('click', closeQuestionModal);
+            document.getElementById('letter-close').addEventListener('click', closeLetterModal);
+            document.getElementById('fragment-close').addEventListener('click', closeFragmentModal);
+            
+            document.addEventListener('click', initAudioContext, { once: true });
+            
+            runOpeningAnimation();
+        }
+        
+        function initAudioContext() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+        }
+        
+        function playMelody(type) {
+            if (!audioContext || isMuted) return;
+            
+            const now = audioContext.currentTime;
+            const masterGain = audioContext.createGain();
+            masterGain.connect(audioContext.destination);
+            masterGain.gain.value = 0.15;
+            
+            const melodies = {
+                // 踏雪归集 - 空灵悠远，适合开场
+                opening: [
+                    { note: 147, duration: 1.5, type: 'sine' },
+                    { note: 165, duration: 1.5, type: 'sine' },
+                    { note: 196, duration: 2.0, type: 'sine' },
+                    { note: 220, duration: 1.5, type: 'sine' },
+                    { note: 196, duration: 2.5, type: 'sine' },
+                    { note: 165, duration: 2.0, type: 'sine' },
+                    { note: 147, duration: 3.0, type: 'sine' }
+                ],
+                // 为霜 - 温暖悠扬，适合驿站长廊
+                main: [
+                    { note: 262, duration: 0.8, type: 'triangle' },
+                    { note: 294, duration: 0.8, type: 'triangle' },
+                    { note: 330, duration: 1.2, type: 'triangle' },
+                    { note: 294, duration: 0.8, type: 'triangle' },
+                    { note: 262, duration: 0.8, type: 'triangle' },
+                    { note: 247, duration: 1.5, type: 'triangle' },
+                    { note: 262, duration: 2.0, type: 'triangle' }
+                ],
+                // 爱情信 - 凄美缠绵
+                love: [
+                    { note: 262, duration: 1.0, type: 'sine' },
+                    { note: 294, duration: 1.0, type: 'sine' },
+                    { note: 247, duration: 1.5, type: 'sine' },
+                    { note: 220, duration: 1.0, type: 'sine' },
+                    { note: 196, duration: 2.0, type: 'sine' },
+                    { note: 220, duration: 1.5, type: 'sine' },
+                    { note: 196, duration: 2.5, type: 'sine' }
+                ],
+                // 挚友情 - 豪迈洒脱
+                friendship: [
+                    { note: 330, duration: 0.6, type: 'triangle' },
+                    { note: 392, duration: 0.6, type: 'triangle' },
+                    { note: 440, duration: 0.8, type: 'triangle' },
+                    { note: 392, duration: 0.6, type: 'triangle' },
+                    { note: 330, duration: 0.6, type: 'triangle' },
+                    { note: 294, duration: 1.0, type: 'triangle' },
+                    { note: 330, duration: 1.5, type: 'triangle' }
+                ],
+                // 亲情 - 温暖感人
+                family: [
+                    { note: 262, duration: 1.0, type: 'triangle' },
+                    { note: 294, duration: 1.0, type: 'triangle' },
+                    { note: 330, duration: 1.5, type: 'triangle' },
+                    { note: 294, duration: 1.0, type: 'triangle' },
+                    { note: 262, duration: 1.0, type: 'triangle' },
+                    { note: 247, duration: 1.5, type: 'triangle' },
+                    { note: 262, duration: 2.0, type: 'triangle' }
+                ],
+                // 师生情 - 敬重悠长
+                teacher: [
+                    { note: 220, duration: 1.2, type: 'triangle' },
+                    { note: 262, duration: 1.2, type: 'triangle' },
+                    { note: 294, duration: 1.5, type: 'triangle' },
+                    { note: 262, duration: 1.2, type: 'triangle' },
+                    { note: 220, duration: 1.2, type: 'triangle' },
+                    { note: 196, duration: 2.0, type: 'triangle' },
+                    { note: 220, duration: 2.5, type: 'triangle' }
+                ],
+                // 同窗情 - 怀旧淡淡感伤
+                classmate: [
+                    { note: 247, duration: 0.8, type: 'sine' },
+                    { note: 262, duration: 0.8, type: 'sine' },
+                    { note: 294, duration: 1.2, type: 'sine' },
+                    { note: 262, duration: 0.8, type: 'sine' },
+                    { note: 247, duration: 0.8, type: 'sine' },
+                    { note: 220, duration: 1.5, type: 'sine' },
+                    { note: 247, duration: 2.0, type: 'sine' }
+                ]
+            };
+            
+            const melody = melodies[type] || melodies.main;
+            
+            melody.forEach((noteData, index) => {
+                const osc = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                
+                osc.type = noteData.type;
+                osc.frequency.value = noteData.note;
+                
+                gain.gain.setValueAtTime(0, now + getStartTime(melody, index));
+                gain.gain.linearRampToValueAtTime(0.3, now + getStartTime(melody, index) + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + getStartTime(melody, index) + noteData.duration);
+                
+                osc.connect(gain);
+                gain.connect(masterGain);
+                
+                osc.start(now + getStartTime(melody, index));
+                osc.stop(now + getStartTime(melody, index) + noteData.duration + 0.1);
+            });
+        }
+        
+        function getStartTime(melody, index) {
+            let time = 0;
+            for (let i = 0; i < index; i++) {
+                time += melody[i].duration;
+            }
+            return time;
+        }
+        
+        function toggleMute() {
+            isMuted = !isMuted;
+            const btn = document.getElementById('mute-btn');
+            btn.textContent = isMuted ? '🔕' : '🔔';
+            btn.classList.toggle('muted', isMuted);
+            
+            // 控制背景音乐音量
+            if (bgMusic.踏雪归集) bgMusic.踏雪归集.volume = isMuted ? 0 : 0.5;
+            if (bgMusic.为霜) bgMusic.为霜.volume = isMuted ? 0 : 0.5;
+        }
+        
+        function hasCompletedAnyToken() {
+            return gameProgress.completedTokens.length > 0;
+        }
+        
+        function canSelectToken(tokenId) {
+            return true;
+        }
+        
+        function runOpeningAnimation() {
+            // 2秒后浮现毛笔字
+            setTimeout(() => {
+                showBrushTitle();
+            }, 2000);
+            
+            // 标题出来后1秒，显示"开始"按钮
+            setTimeout(() => {
+                showStartButton();
+            }, 4000);
+        }
+        
+        function showBrushTitle() {
+            const splashScreen = document.getElementById('splash-screen');
+            const titleDiv = document.createElement('div');
+            titleDiv.className = 'brush-title';
+            titleDiv.textContent = '云中谁寄锦书来';
+            splashScreen.appendChild(titleDiv);
+        }
+        
+        function showStartButton() {
+            const splashScreen = document.getElementById('splash-screen');
+            const button = document.createElement('button');
+            button.className = 'action-button';
+            button.textContent = '开始';
+            button.style.animation = 'buttonAppear 1s ease-out forwards';
+            button.addEventListener('click', () => {
+                startAnimationSequence();
+            });
+            splashScreen.appendChild(button);
+        }
+        
+        function startAnimationSequence() {
+            // 移除开始按钮
+            const buttons = document.querySelectorAll('.action-button');
+            buttons.forEach(btn => btn.remove());
+            
+            // 移除毛笔字
+            const titles = document.querySelectorAll('.brush-title');
+            titles.forEach(title => title.remove());
+            
+            // 隐藏所有场景
+            hideAllScenes();
+            
+            // 播放踏雪归集
+            playBgMusic('踏雪归集');
+            
+            // 显示并播放开头动画视频
+            const videoScene = document.getElementById('scene-animation-video');
+            videoScene.classList.remove('scene-hidden');
+            setTimeout(() => {
+                videoScene.classList.add('active');
+            }, 50);
+            
+            const video = document.getElementById('animationVideo');
+            video.muted = false; // 视频有声音
+            video.play();
+            
+            // 等待视频播放完毕
+            video.onended = function() {
+                showYiguanScene();
+            };
+        }
+        
+        function hideAllScenes() {
+            const scenes = document.querySelectorAll('.scene-container');
+            scenes.forEach(scene => {
+                scene.classList.remove('active');
+            });
+        }
+        
+        function showYiguanScene() {
+            // 隐藏所有场景
+            hideAllScenes();
+            
+            // 停止踏雪归集
+            if (bgMusic.踏雪归集) {
+                bgMusic.踏雪归集.pause();
+                bgMusic.踏雪归集.currentTime = 0;
+            }
+            
+            // 显示驿馆场景
+            const yiguanScene = document.getElementById('scene-yiguan');
+            yiguanScene.classList.remove('scene-hidden');
+            setTimeout(() => {
+                yiguanScene.classList.add('active');
+            }, 50);
+            
+            // 播放驿馆视频
+            const video = document.getElementById('yiguanVideo');
+            video.muted = false; // 视频有声音作为背景音乐
+            video.play();
+            
+            // 2秒后显示"进入"按钮
+            setTimeout(() => {
+                showEnterButton();
+            }, 2000);
+        }
+        
+        function showEnterButton() {
+            const splashScreen = document.getElementById('splash-screen');
+            const button = document.createElement('button');
+            button.className = 'action-button';
+            button.textContent = '进入';
+            button.style.animation = 'buttonAppear 1s ease-out forwards';
+            button.style.background = 'linear-gradient(135deg, #4a4a4a 0%, #2a2a2a 100%)';
+            button.style.border = '3px solid #d4af37';
+            button.addEventListener('click', () => {
+                goToMainMenu();
+            });
+            splashScreen.appendChild(button);
+        }
+        
+        function goToMainMenu() {
+            // 停止驿馆视频
+            const yiguanVideo = document.getElementById('yiguanVideo');
+            if (yiguanVideo) {
+                yiguanVideo.pause();
+            }
+            
+            const splashScreen = document.getElementById('splash-screen');
+            splashScreen.style.display = 'none';
+            showMainMenu();
+            
+            // 播放为霜，从第5秒开始
+            playBgMusicFrom('为霜', 5);
+        }
+        
+        function showMainMenu() {
+            const menu = document.getElementById('main-menu');
+            const tokensContainer = document.getElementById('menu-tokens');
+            
+            tokensContainer.innerHTML = '';
+            tokensContainer.style.opacity = '0'; // 先隐藏信物
+            
+            tokenOrder.forEach(tokenId => {
+                const data = gameData[tokenId];
+                const token = document.createElement('div');
+                token.className = 'menu-token';
+                
+                if (!canSelectToken(tokenId)) {
+                    token.classList.add('locked');
+                }
+                
+                if (gameProgress.tokens[tokenId]?.completed) {
+                    token.classList.add('completed');
+                }
+                
+                token.innerHTML = `
+                    <img class="menu-token-icon" src="${data.icon}" alt="${data.name}" />
+                    <div class="menu-token-name">${data.name}</div>
+                    <div class="menu-token-intro">${data.intro}</div>
+                `;
+                
+                token.addEventListener('click', () => {
+                    if (canSelectToken(tokenId)) {
+                        selectToken(tokenId);
+                    }
+                });
+                
+                tokensContainer.appendChild(token);
+            });
+            
+            menu.style.display = 'flex';
+            
+            // 1秒后显示信物
+            setTimeout(() => {
+                tokensContainer.style.opacity = '1';
+                tokensContainer.style.transition = 'opacity 1s ease-out';
+            }, 1000);
+        }
+        
+        function selectToken(tokenId) {
+            currentToken = tokenId;
+            const menu = document.getElementById('main-menu');
+            const gameArea = document.getElementById('game-area');
+            
+            menu.style.display = 'none';
+            gameArea.style.display = 'flex';
+            
+            initTokenProgress(tokenId);
+            updateUI();
+        }
+        
+        function initTokenProgress(tokenId) {
+            if (!gameProgress.tokens[tokenId]) {
+                gameProgress.tokens[tokenId] = {
+                    searchFragments: [false, false, false],
+                    questionFragments: [false, false, false],
+                    completed: false
+                };
+                saveProgress();
+            }
+        }
+        
+        function backToMenu() {
+            const menu = document.getElementById('main-menu');
+            const gameArea = document.getElementById('game-area');
+            
+            gameArea.style.display = 'none';
+            showMainMenu();
+        }
+        
+        function updateUI() {
+            const tokenData = gameData[currentToken];
+            document.getElementById('current-token').textContent = tokenData.name;
+            
+            const progress = gameProgress.tokens[currentToken];
+            const totalFragments = progress.searchFragments.filter(f => f).length + 
+                                   progress.questionFragments.filter(f => f).length;
+            
+            const dotsContainer = document.getElementById('fragments-progress');
+            dotsContainer.innerHTML = '';
+            for (let i = 0; i < 6; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'fragment-dot' + (i < totalFragments ? ' collected' : '');
+                dotsContainer.appendChild(dot);
+            }
+            
+            updateFragmentsList();
+            
+            const restoreBtn = document.getElementById('restore-btn');
+            restoreBtn.disabled = totalFragments < 6;
+        }
+        
+        function updateFragmentsList() {
+            const container = document.getElementById('fragments-list');
+            const tokenData = gameData[currentToken];
+            const progress = gameProgress.tokens[currentToken];
+            
+            container.innerHTML = '';
+            
+            tokenData.searchFragments.forEach((text, idx) => {
+                const collected = progress.searchFragments[idx];
+                const item = document.createElement('div');
+                item.className = 'fragment-item' + (collected ? ' collected' : '');
+                item.innerHTML = `
+                    <div class="fragment-location">寻信碎片 ${idx + 1}</div>
+                    <div class="fragment-text">${collected ? text : '???'}</div>
+                `;
+                if (collected) {
+                    item.addEventListener('click', () => showFragmentDetail(tokenData.searchLocations[idx], text));
+                }
+                container.appendChild(item);
+            });
+            
+            tokenData.questions.forEach((q, idx) => {
+                const collected = progress.questionFragments[idx];
+                const item = document.createElement('div');
+                item.className = 'fragment-item' + (collected ? ' collected' : '');
+                item.innerHTML = `
+                    <div class="fragment-location">证信碎片 ${idx + 1}</div>
+                    <div class="fragment-text">${collected ? q.fragment : '???'}</div>
+                `;
+                if (collected) {
+                    item.addEventListener('click', () => showFragmentDetail('证信', q.fragment));
+                }
+                container.appendChild(item);
+            });
+        }
+        
+        function showFragmentDetail(location, text) {
+            const modal = document.getElementById('fragment-modal');
+            const content = document.getElementById('fragment-modal-content');
+            content.innerHTML = `
+                <div class="panel-title">${location}</div>
+                <div style="padding: 20px; font-size: 16px; line-height: 2; color: #2c2416; text-align: center;">
+                    ${text}
+                </div>
+            `;
+            modal.classList.add('active');
+        }
+        
+        function closeFragmentModal() {
+            document.getElementById('fragment-modal').classList.remove('active');
+        }
+        
+        function showSearchLocations() {
+            const container = document.getElementById('search-locations');
+            const list = document.getElementById('locations-list');
+            const tokenData = gameData[currentToken];
+            const progress = gameProgress.tokens[currentToken];
+            
+            list.innerHTML = '';
+            
+            tokenData.searchLocations.forEach((loc, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'location-btn';
+                btn.textContent = loc + (progress.searchFragments[idx] ? ' ✓' : '');
+                btn.disabled = progress.searchFragments[idx];
+                btn.addEventListener('click', () => collectSearchFragment(idx));
+                list.appendChild(btn);
+            });
+            
+            container.style.display = container.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        function collectSearchFragment(idx) {
+            const progress = gameProgress.tokens[currentToken];
+            if (!progress.searchFragments[idx]) {
+                progress.searchFragments[idx] = true;
+                saveProgress();
+                updateUI();
+                showFragmentModal(gameData[currentToken].searchLocations[idx], 
+                                  gameData[currentToken].searchFragments[idx]);
+            }
+            document.getElementById('search-locations').style.display = 'none';
+        }
+        
+        function showVerifyQuestion() {
+            const tokenData = gameData[currentToken];
+            const progress = gameProgress.tokens[currentToken];
+            
+            const unanswered = tokenData.questions.filter((_, idx) => !progress.questionFragments[idx]);
+            
+            if (unanswered.length === 0) {
+                alert('所有证信碎片已收集完毕！');
+                return;
+            }
+            
+            const question = unanswered[Math.floor(Math.random() * unanswered.length)];
+            const idx = tokenData.questions.indexOf(question);
+            
+            const modal = document.getElementById('question-modal');
+            const text = document.getElementById('question-text');
+            const options = document.getElementById('question-options');
+            
+            text.textContent = question.question;
+            options.innerHTML = '';
+            
+            question.options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = 'question-option';
+                btn.textContent = opt;
+                btn.addEventListener('click', () => checkAnswer(opt, question.answer, btn, idx));
+                options.appendChild(btn);
+            });
+            
+            modal.classList.add('active');
+        }
+        
+        function checkAnswer(selected, correct, btn, idx) {
+            if (selected.startsWith(correct)) {
+                btn.classList.add('correct');
+                const progress = gameProgress.tokens[currentToken];
+                progress.questionFragments[idx] = true;
+                saveProgress();
+                updateUI();
+                
+                setTimeout(() => {
+                    closeQuestionModal();
+                    showFragmentModal('证信', gameData[currentToken].questions[idx].fragment);
+                }, 1000);
+            } else {
+                btn.classList.add('wrong');
+                setTimeout(() => {
+                    btn.classList.remove('wrong');
+                }, 1000);
+            }
+        }
+        
+        function closeQuestionModal() {
+            document.getElementById('question-modal').classList.remove('active');
+        }
+        
+        function restoreLetter() {
+            const tokenData = gameData[currentToken];
+            const progress = gameProgress.tokens[currentToken];
+            
+            if (progress.searchFragments.filter(f => f).length + 
+                progress.questionFragments.filter(f => f).length < 6) {
+                return;
+            }
+            
+            // 播放对应主题音乐
+            playMelody(currentToken);
+            
+            // 显示定场诗
+            const poemModal = document.getElementById('poem-modal');
+            document.getElementById('poem-text').textContent = tokenData.poem;
+            document.getElementById('poem-source').textContent = tokenData.poemSource;
+            poemModal.classList.add('active');
+            
+            // 2.5秒后关闭定场诗，显示完整书信
+            setTimeout(() => {
+                poemModal.classList.remove('active');
+                showLetterModal(tokenData);
+            }, 2500);
+        }
+        
+        function showLetterModal(tokenData) {
+            const modal = document.getElementById('letter-modal');
+            document.getElementById('letter-title').textContent = tokenData.name + ' - 完整书信';
+            const content = document.getElementById('letter-content');
+            content.textContent = tokenData.fullLetter;
+            content.className = 'letter-content';
+            modal.classList.add('active');
+            
+            const progress = gameProgress.tokens[currentToken];
+            if (!progress.completed) {
+                progress.completed = true;
+                if (!gameProgress.completedTokens.includes(currentToken)) {
+                    gameProgress.completedTokens.push(currentToken);
+                }
+                saveProgress();
+            }
+        }
+        
+        function closeLetterModal() {
+            document.getElementById('letter-modal').classList.remove('active');
+            
+            // 检查是否所有任务都已完成
+            if (checkAllTasksCompleted()) {
+                setTimeout(() => {
+                    showRestartOption();
+                }, 500);
+            }
+        }
+        
+        function checkAllTasksCompleted() {
+            return gameProgress.completedTokens.length === tokenOrder.length;
+        }
+        
+        function showRestartOption() {
+            const restartDiv = document.createElement('div');
+            restartDiv.id = 'restart-option';
+            restartDiv.className = 'restart-overlay';
+            restartDiv.innerHTML = `
+                <div class="restart-popup">
+                    <div class="restart-title">恭喜你完成了所有任务！</div>
+                    <div class="restart-text">云中谁寄锦书来的故事已经全部读完，是否想重新体验？</div>
+                    <div class="restart-buttons">
+                        <button class="restart-btn" id="restart-yes-btn">重新开始</button>
+                        <button class="restart-btn" id="restart-no-btn">再看看</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(restartDiv);
+            
+            // 绑定按钮事件
+            document.getElementById('restart-yes-btn').addEventListener('click', restartGame);
+            document.getElementById('restart-no-btn').addEventListener('click', () => {
+                restartDiv.remove();
+            });
+        }
+        
+        function restartGame() {
+            // 清除进度
+            localStorage.removeItem('cloudLetterGameProgress');
+            
+            // 重置进度对象
+            gameProgress = {
+                tokens: {},
+                completedTokens: []
+            };
+            
+            // 初始化所有信物进度
+            tokenOrder.forEach(tokenId => {
+                gameProgress.tokens[tokenId] = {
+                    unlocked: false,
+                    fragments: [],
+                    completed: false
+                };
+            });
+            gameProgress.tokens[tokenOrder[0]].unlocked = true;
+            saveProgress();
+            
+            // 隐藏重新开始界面
+            document.getElementById('restart-option').remove();
+            
+            // 返回主菜单
+            document.getElementById('game-area').style.display = 'none';
+            showMainMenu();
+        }
+        
+        function showFragmentModal(location, text) {
+            const modal = document.getElementById('fragment-modal');
+            const content = document.getElementById('fragment-modal-content');
+            content.innerHTML = `
+                <div class="panel-title">${location}</div>
+                <div style="padding: 20px; font-size: 16px; line-height: 2; color: #2c2416; text-align: center;">
+                    ${text}
+                </div>
+            `;
+            modal.classList.add('active');
+        }
+        
+        window.addEventListener('load', initGame);
+    </script>
+</body>
+</html>
